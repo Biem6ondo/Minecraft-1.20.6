@@ -556,6 +556,97 @@ else
         end
     })
 
+local Players = game:GetService("Players")
+local RS = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
+
+local Aura = false
+local HookEnabled = false
+local hasHook = type(hookmetamethod) == "function"
+local currentTarget = nil
+
+if hasHook then
+	local old
+	old = hookmetamethod(game, "__namecall", function(self, ...)
+		local args = {...}
+		local method = getnamecallmethod()
+
+		if HookEnabled
+		and not checkcaller()
+		and method == "InvokeServer"
+		and self.Name == "SendState" then
+
+			local packet = args[1]
+
+			if typeof(packet) == "table" then
+				packet.iattack = true
+
+				if currentTarget then
+					packet.targetEntity = currentTarget
+				end
+			end
+		end
+
+		return old(self, unpack(args))
+	end)
+end
+
+Tav:Toggle({
+	Title = "Kill Aura",
+	Callback = function(v)
+		Aura = v
+		HookEnabled = v
+
+		if v then
+			task.spawn(function()
+				while Aura do
+					local char = LP.Character
+					local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+					if hrp then
+						local nearest, dist = nil, 30
+
+						for _, plr in ipairs(Players:GetPlayers()) do
+							if plr ~= LP then
+								local c = plr.Character
+								local h = c and c:FindFirstChildOfClass("Humanoid")
+								local root = c and c:FindFirstChild("HumanoidRootPart")
+
+								if h and root and h.Health > 0 then
+									local mag = (hrp.Position - root.Position).Magnitude
+									if mag <= dist then
+										dist = mag
+										nearest = plr
+									end
+								end
+							end
+						end
+
+						if nearest then
+							currentTarget = nearest.Name
+
+							if not hasHook then
+								local packet = {
+									targetEntity = currentTarget,
+									iattack = true
+								}
+
+								pcall(function()
+									RS:WaitForChild("SendState"):InvokeServer(packet)
+								end)
+							end
+						else
+							currentTarget = nil
+						end
+					end
+
+					task.wait()
+				end
+			end)
+		end
+	end,
+})
+
 local AntiFall = false
 
 Tab:Toggle({
