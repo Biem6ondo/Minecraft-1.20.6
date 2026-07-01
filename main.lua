@@ -591,7 +591,7 @@ if hasHook then
 	end)
 end
 
-Tav:Toggle({
+Tab:Toggle({
 	Title = "Kill Aura",
 	Callback = function(v)
 		Aura = v
