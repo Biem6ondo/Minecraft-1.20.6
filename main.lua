@@ -558,7 +558,7 @@ else
 
 local AntiFall = false
 
-Tab:CreateToggle({
+Tab:Toggle({
 	Title = "Anti Falldamage",
 	Callback = function(val)
 		AntiFall = val
