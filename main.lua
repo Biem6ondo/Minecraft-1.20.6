@@ -556,6 +556,138 @@ else
         end
     })
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui") or Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local addedEvent = ReplicatedStorage:WaitForChild("Added")
+local entityTable = nil
+local floatLoop = nil
+local sg = nil
+
+local isMovingUp = false
+local isMovingDown = false
+local speed = 0.12
+local lockedHeight = 0
+
+local function getEntity()
+    if entityTable then return entityTable end
+    for _, connection in pairs(getconnections(addedEvent.OnClientEvent)) do
+        local func = connection.Function
+        if func then
+            local upvalues = debug.getupvalues(func)
+            for _, v in pairs(upvalues) do
+                if type(v) == "table" and v.Motion and v.Pos then
+                    entityTable = v
+                    return entityTable
+                end
+            end
+        end
+    end
+    return nil
+end
+
+Tab:Toggle({
+    Title = "Float",
+    Callback = function(state)
+        if state then
+            local entity = getEntity()
+            if not entity then return end
+            
+            lockedHeight = entity.Pos.Y
+            isMovingUp = false
+            isMovingDown = false
+            
+            sg = Instance.new("ScreenGui")
+            sg.Name = "FloatControlUI"
+            sg.ResetOnSpawn = false
+            sg.Parent = CoreGui
+
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(0, 70, 0, 160)
+            frame.Position = UDim2.new(1, -90, 0.5, -80)
+            frame.BackgroundTransparency = 1
+            frame.Parent = sg
+
+            local layout = Instance.new("UIListLayout")
+            layout.Padding = UDim.new(0, 15)
+            layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            layout.VerticalAlignment = Enum.VerticalAlignment.Center
+            layout.Parent = frame
+
+            local function createButton(text, color)
+                local btn = Instance.new("TextButton")
+                btn.Size = UDim2.new(0, 55, 0, 55)
+                btn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+                btn.BackgroundTransparency = 0.2
+                btn.Text = text
+                btn.TextColor3 = color
+                btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 22
+                btn.AutoButtonColor = true
+                
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 16)
+                corner.Parent = btn
+                
+                local stroke = Instance.new("UIStroke")
+                stroke.Color = color
+                stroke.Thickness = 2
+                stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                stroke.Parent = btn
+                
+                btn.Parent = frame
+                return btn
+            end
+
+            local btnUp = createButton("▲", Color3.fromRGB(0, 255, 140))
+            local btnDown = createButton("▼", Color3.fromRGB(255, 60, 100))
+
+            btnUp.MouseButton1Down:Connect(function() isMovingUp = true end)
+            btnUp.MouseButton1Up:Connect(function() isMovingUp = false end)
+            btnUp.MouseLeave:Connect(function() isMovingUp = false end)
+
+            btnDown.MouseButton1Down:Connect(function() isMovingDown = true end)
+            btnDown.MouseButton1Up:Connect(function() isMovingDown = false end)
+            btnDown.MouseLeave:Connect(function() isMovingDown = false end)
+
+            floatLoop = RunService.RenderStepped:Connect(function()
+                if entityTable and type(entityTable) == "table" and entityTable.Pos then
+                    if isMovingUp then
+                        lockedHeight = lockedHeight + speed
+                    elseif isMovingDown then
+                        lockedHeight = lockedHeight - speed
+                    end
+                    
+                    if entityTable.Motion then
+                        entityTable.Motion = Vector3.new(entityTable.Motion.X, 0, entityTable.Motion.Z)
+                    end
+                    
+                    entityTable.Pos = Vector3.new(entityTable.Pos.X, lockedHeight, entityTable.Pos.Z)
+                    entityTable.FallDistance = 0
+                    entityTable.Fell = nil
+                    entityTable.OnGround = true
+                else
+                    if floatLoop then floatLoop:Disconnect() end
+                    if sg then sg:Destroy() end
+                end
+            end)
+        else
+            if floatLoop then
+                floatLoop:Disconnect()
+                floatLoop = nil
+            end
+            if sg then
+                sg:Destroy()
+                sg = nil
+            end
+            isMovingUp = false
+            isMovingDown = false
+        end
+    end,
+})
+
     local envi = Window:Tab({ Title = "Environment", Icon = "home" })
     local L = game:GetService("Lighting")
     local C = {}
