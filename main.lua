@@ -1,3 +1,8 @@
+local devText = [[
+This script only works with "Minecraft 1.20.6".
+
+If you're using it in another fake Minecraft game, please don't worry. I'll add support for it soon!
+]]
 
 if game.PlaceId ~= 96524407319918 then
 local WindUI = loadstring(game:HttpGet(
@@ -13,8 +18,8 @@ local Window = WindUI:CreateWindow({
 
 local Dialog = Window:Dialog({
     Icon = "bird",
-    Title = "Dialog Title",
-    Content = "Content Text",
+    Title = "Not support",
+    Content = devText,
     Buttons = {
         {
             Title = "Teleport To",
@@ -23,7 +28,7 @@ local Dialog = Window:Dialog({
             end,
         },
         {
-            Title = "Cancel",
+            Title = "Ok",
             Callback = function()
                 Dialog:Close()
             end,
