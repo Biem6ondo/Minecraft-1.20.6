@@ -556,6 +556,38 @@ else
         end
     })
 
+local AntiFall = false
+
+Tab:CreateToggle({
+	Title = "Anti Falldamage",
+	Callback = function(val)
+		AntiFall = val
+	end,
+})
+
+local old
+old = hookmetamethod(game, "__namecall", function(self, ...)
+	local args = {...}
+	local method = getnamecallmethod()
+
+	if method == "InvokeServer"
+	and self.Name == "SendState"
+	and AntiFall then
+
+		local packet = args[1]
+
+		if typeof(packet) == "table" then
+			if packet.onGround == 1 then
+				packet.onGround = 2
+			elseif packet.onGround == nil then
+				packet.onGround = 2
+			end
+		end
+	end
+
+	return old(self, unpack(args))
+end)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
