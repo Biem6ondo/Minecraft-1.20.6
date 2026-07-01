@@ -1,3 +1,5 @@
+
+if game.PlaceId ~= 96524407319918 then
 local WindUI = loadstring(game:HttpGet(
   "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"
 ))()
@@ -8,7 +10,6 @@ local Window = WindUI:CreateWindow({
   Theme = "Dark",
 })
 
-if game.PlaceId ~= 96524407319918 then return
 
 local Dialog = Window:Dialog({
     Icon = "bird",
@@ -30,7 +31,7 @@ local Dialog = Window:Dialog({
     },
 })
 
-end
+else
 
 local Tab = Window:Tab({ Title = "Hack", Icon = "home" })
 
@@ -662,3 +663,4 @@ envi:Toggle({
 		end
 	end
 })
+end
