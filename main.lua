@@ -4,7 +4,6 @@ This script only works with "Minecraft 1.20.6".
 If you're using it in another fake Minecraft game, please don't worry. I'll add support for it soon!
 ]]
 
--- Đưa WindUI và Window ra ngoài (Global Scope của script) để cả khối if và else đều có thể gọi được
 local WindUI = loadstring(game:HttpGet(
   "https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"
 ))()
@@ -15,7 +14,8 @@ local Window = WindUI:CreateWindow({
   Theme = "Dark",
 })
 
--- Bắt đầu xác minh game
+local Tab = Window:Tab({ Title = "Hack", Icon = "home" })
+
 if game.PlaceId ~= 96524407319918 then
     local Dialog = Window:Dialog({
         Icon = "bird",
@@ -43,11 +43,7 @@ if game.PlaceId ~= 96524407319918 then
             },
         },
     })
-
 else
-    -- Không có thay đổi nào ở phần tính năng bên dưới
-    local Tab = Window:Tab({ Title = "Hack", Icon = "home" })
-
     local RunService = game:GetService("RunService")
     local Camera = workspace.CurrentCamera
     local Players = game:GetService("Players")
@@ -434,7 +430,6 @@ else
                 local moveY = p2.Motion.Y
                 local moveZ = p2.Motion.Z
                 
-                -- Nếu di chuyển lên TRÊN hoặc nếu bật NoclipY (bỏ qua sàn dưới chân để đi xuống)
                 if moveY > 0 or _G.NoclipY then
                     p2.Motion = Vector3.new(0, 0, 0)
                     local colVec, hitBlocks = oldCollisionCheck(p1, p2, p3, p4)
