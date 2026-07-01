@@ -8,6 +8,30 @@ local Window = WindUI:CreateWindow({
   Theme = "Dark",
 })
 
+if game.PlaceId ~= 96524407319918 then return
+
+local Dialog = Window:Dialog({
+    Icon = "bird",
+    Title = "Dialog Title",
+    Content = "Content Text",
+    Buttons = {
+        {
+            Title = "Teleport To",
+            Callback = function()
+                Dialog:Close()
+            end,
+        },
+        {
+            Title = "Cancel",
+            Callback = function()
+                Dialog:Close()
+            end,
+        },
+    },
+})
+
+end
+
 local Tab = Window:Tab({ Title = "Hack", Icon = "home" })
 
 local RunService = game:GetService("RunService")
