@@ -14,7 +14,13 @@ local Window = WindUI:CreateWindow({
   Theme = "Dark",
 })
 
-local Tab = Window:Tab({ Title = "Hack", Icon = "home" })
+local Section = Window:Section({
+    Title = "Hack",
+    Icon = "bird",
+    Opened = false,
+})
+
+local Tab = Section:Tab({ Title = "Hack", Icon = "home" })
 
 if game.PlaceId ~= 96524407319918 then
     local Dialog = Window:Dialog({
@@ -604,7 +610,7 @@ Tab:Toggle({
 					local hrp = char and char:FindFirstChild("HumanoidRootPart")
 
 					if hrp then
-						local nearest, dist = nil, 30
+						local nearest, dist = nil, 50
 
 						for _, plr in ipairs(Players:GetPlayers()) do
 							if plr ~= LP then
@@ -647,38 +653,6 @@ Tab:Toggle({
 	end,
 })
 
-local AntiFall = false
-
-Tab:Toggle({
-	Title = "Anti Falldamage",
-	Callback = function(val)
-		AntiFall = val
-	end,
-})
-
-local old
-old = hookmetamethod(game, "__namecall", function(self, ...)
-	local args = {...}
-	local method = getnamecallmethod()
-
-	if method == "InvokeServer"
-	and self.Name == "SendState"
-	and AntiFall then
-
-		local packet = args[1]
-
-		if typeof(packet) == "table" then
-			if packet.onGround == 1 then
-				packet.onGround = 2
-			elseif packet.onGround == nil then
-				packet.onGround = 2
-			end
-		end
-	end
-
-	return old(self, unpack(args))
-end)
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -691,7 +665,7 @@ local sg = nil
 
 local isMovingUp = false
 local isMovingDown = false
-local speed = 0.12
+local speed = 0.2
 local lockedHeight = 0
 
 local function getEntity()
@@ -810,6 +784,39 @@ Tab:Toggle({
         end
     end,
 })
+
+local prot = Window:Tab({ Title = "Protection" })
+local AntiFall = false
+
+prot:Toggle({
+	Title = "Anti Falldamage",
+	Callback = function(val)
+		AntiFall = val
+	end,
+})
+
+local old
+old = hookmetamethod(game, "__namecall", function(self, ...)
+	local args = {...}
+	local method = getnamecallmethod()
+
+	if method == "InvokeServer"
+	and self.Name == "SendState"
+	and AntiFall then
+
+		local packet = args[1]
+
+		if typeof(packet) == "table" then
+			if packet.onGround == 1 then
+				packet.onGround = 2
+			elseif packet.onGround == nil then
+				packet.onGround = 2
+			end
+		end
+	end
+
+	return old(self, unpack(args))
+end)
 
     local envi = Window:Tab({ Title = "Environment", Icon = "home" })
     local L = game:GetService("Lighting")
