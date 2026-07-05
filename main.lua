@@ -50,6 +50,14 @@ if game.PlaceId ~= 96524407319918 then
         },
     })
 else
+
+	pcall(function()
+local remote = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("Chat")
+for _,v in pairs(getconnections(remote.OnClientEvent)) do
+v.Function("&4[Warning]", "&6Still cooking. May break on some executors. Drop bugs / ideas on ScriptBlox if you want it fixed faster.", "server")
+	end
+end)
+	
     local RunService = game:GetService("RunService")
     local Camera = workspace.CurrentCamera
     local Players = game:GetService("Players")
