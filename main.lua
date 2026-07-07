@@ -58,136 +58,148 @@ v.Function("&4[Warning]", "&6Still cooking. May break on some executors. Drop bu
 	end
 end)
 	
-    local RunService = game:GetService("RunService")
-    local Camera = workspace.CurrentCamera
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
 
-    local ESP = false
+local ESP = false
+local AdvancedESP = false
+local WorldManagerReady = false
 
-    local SelectedOre = {
-        Iron = true,
-        Coal = true,
-        Redstone = true,
-        Diamond = true,
-        Gold = true
-    }
+local SelectedOre = {
+    Iron = true,
+    Coal = true,
+    Redstone = true,
+    Diamond = true,
+    Gold = true
+}
 
-    local SelectedMode = {
-        Highlight = true,
-        Line = true,
-        Name = true,
-        Cluster = true,
-        ClickToTeleport = true
-    }
+local SelectedMode = {
+    Highlight = true,
+    Line = true,
+    Name = true,
+    Cluster = true,
+    ClickToTeleport = true
+}
 
-    local guis = {}
+local guis = {}
+local processed = {}
+local clusters = {}
 
-    local function UpdateMultiSelection(targetTable, dropdownData)
-        for k in pairs(targetTable) do
-            targetTable[k] = nil
+local AdvancedESPFolder = CoreGui:FindFirstChild("AdvancedOreESP") or Instance.new("Folder")
+AdvancedESPFolder.Name = "AdvancedOreESP"
+AdvancedESPFolder.Parent = CoreGui
+
+local ScannedBlocks = {}
+
+local ADV_ORE_MAP = {
+    [15] = {Name = "Iron", Color = Color3.fromRGB(200,200,200)},
+    [16] = {Name = "Coal", Color = Color3.fromRGB(50,50,50)},
+    [73] = {Name = "Redstone", Color = Color3.fromRGB(255,0,0)},
+    [14] = {Name = "Gold", Color = Color3.fromRGB(248, 211, 62)},
+    [56] = {Name = "Diamond", Color = Color3.fromRGB(83, 233, 221)},
+    [524] = {Name = "Ancient Debris", Color = Color3.fromRGB(67, 61, 66)}
+}
+
+local ORE_IDS = {
+    Iron = "131779247788978",
+    Coal = "101285368663656",
+    Redstone = "107428584594403",
+    Gold = "112951741279211",
+    Diamond = "84697441577522",
+    ["Ancient Debris"] = "Testing Please Wait"
+}
+
+local ORE_COLORS = {
+    Iron = Color3.fromRGB(200,200,200),
+    Coal = Color3.fromRGB(50,50,50),
+    Redstone = Color3.fromRGB(255,0,0),
+    Diamond = Color3.fromRGB(83, 233, 221),
+    Gold = Color3.fromRGB(248, 211, 62),
+    ["Ancient Debris"] = Color3.fromRGB(67, 61, 66)
+}
+
+local CLUSTER_RADIUS = 6
+local RENDER_DISTANCE = 200
+local SCAN_RADIUS_BLOCKS = math.ceil(RENDER_DISTANCE / 3) 
+
+local function UpdateMultiSelection(targetTable, dropdownData)
+    for k in pairs(targetTable) do
+        targetTable[k] = nil
+    end
+    for k, v in pairs(dropdownData) do
+        if type(k) == "number" then
+            targetTable[v] = true 
+        else
+            targetTable[k] = v   
         end
-        for k, v in pairs(dropdownData) do
-            if type(k) == "number" then
-                targetTable[v] = true 
-            else
-                targetTable[k] = v   
+    end
+end
+
+local function InitWorldManager()
+    if WorldManagerReady then return end
+    local wm = nil
+    for _, v in pairs(getgc(true)) do
+        if type(v) == "table" and type(rawget(v, "getBlock")) == "function" and type(rawget(v, "getNearbyEntities")) == "function" then
+            wm = v
+            break
+        end
+    end
+    if not wm then
+        for _, v in pairs(getgc(true)) do
+            if type(v) == "table" and type(rawget(v, "getBlock")) == "function" then
+                wm = v
+                break
             end
         end
     end
-
-    Tab:Toggle({
-        Title = "Esp Ore",
-        Value = false,
-        Callback = function(state)
-            ESP = state
-            if not state then
-                for _,v in ipairs(clusters or {}) do
-                    if v.Highlight then v.Highlight.Enabled = false end
-                    if v.Line then v.Line.Visible = false end
-                    if v.Text then v.Text.Visible = false end
-                    for _, p in ipairs(v.Parts) do
-                        if p and guis[p] then
-                            guis[p].Enabled = false
-                        end
-                    end
-                end
-            end
-        end,
-    })
-
-    Tab:Dropdown({
-        Title = "Ore",
-        Values = {"Iron","Coal","Redstone", "Diamond", "Gold"},
-        Value = {"Iron","Coal","Redstone", "Diamond", "Gold"},
-        Multi = true,
-        Callback = function(t)
-            UpdateMultiSelection(SelectedOre, t)
-        end,
-    })
-
-    Tab:Dropdown({
-        Title = "Mode",
-        Values = {"Highlight","Line","Name","Cluster","ClickToTeleport"},
-        Value = {"Highlight","Line","Name","Cluster","ClickToTeleport"},
-        Multi = true,
-        Callback = function(t)
-            UpdateMultiSelection(SelectedMode, t)
-        end,
-    })
-
-    local ORE_IDS = {
-        Iron = "131779247788978",
-        Coal = "101285368663656",
-        Redstone = "107428584594403",
-        Gold = "112951741279211",
-        Diamond = "84697441577522"
-    }
-
-    local ORE_COLORS = {
-        Iron = Color3.fromRGB(200,200,200),
-        Coal = Color3.fromRGB(50,50,50),
-        Redstone = Color3.fromRGB(255,0,0),
-        Diamond = Color3.fromRGB(83, 233, 221),
-        Gold = Color3.fromRGB(248, 211, 62)
-    }
-
-    local CLUSTER_RADIUS = 6
-
-    local processed = {}
-    clusters = {}
-
-    local function GetAssetId(str)
-        str = tostring(str or ""):lower()
-        local id = str:match("id=(%d+)") or str:match("rbxassetid://(%d+)")
-        
-        if not id then
-            for num in str:gmatch("%d+") do
-                if #num >= 7 then 
-                    id = num
-                    break
-                end
-            end
+    if wm then
+        _G.GetBlockId = function(x, y, z)
+            local success, b = pcall(function()
+                return wm.getBlock(x, y, z)
+            end)
+            if not success or not b then return 0 end
+            if type(b) == "number" then return b end
+            if type(b) == "table" then return b.id or 0 end
+            return 0
         end
-        return id
+        WorldManagerReady = true
     end
+end
 
-    local function RemoveCluster(cluster)
-        if cluster.Highlight then cluster.Highlight:Destroy() end
-        if cluster.Line then cluster.Line:Remove() end
-        if cluster.Text then cluster.Text:Remove() end
-        for _, p in ipairs(cluster.Parts) do
-            if p and guis[p] then
-                guis[p]:Destroy()
-                guis[p] = nil
+local function GetAssetId(str)
+    str = tostring(str or ""):lower()
+    local id = str:match("id=(%d+)") or str:match("rbxassetid://(%d+)")
+    if not id then
+        for num in str:gmatch("%d+") do
+            if #num >= 7 then 
+                id = num
+                break
             end
         end
     end
+    return id
+end
 
-    local function CreateVisual(cluster)
-        local color = ORE_COLORS[cluster.Name] or Color3.new(1,1,1)
+local function RemoveCluster(cluster)
+    if cluster.Highlight then cluster.Highlight:Destroy() end
+    if cluster.Line then cluster.Line:Remove() end
+    if cluster.Text then cluster.Text:Remove() end
+    for _, p in ipairs(cluster.Parts) do
+        if p and guis[p] then
+            guis[p]:Destroy()
+            guis[p] = nil
+        end
+    end
+end
 
+local function CreateVisual(cluster)
+    local color = ORE_COLORS[cluster.Name] or Color3.new(1,1,1)
+
+    if not cluster.IsAdvanced then
         local h = Instance.new("Highlight")
         h.FillColor = color
         h.OutlineColor = Color3.new(1,1,1)
@@ -196,204 +208,362 @@ end)
         h.Adornee = cluster.Parts[1]
         h.Parent = cluster.Parts[1]
         cluster.Highlight = h
-
-        local l = Drawing.new("Line")
-        l.Color = color
-        l.Thickness = 1.5
-        l.Transparency = 1
-        l.Visible = false
-        cluster.Line = l
-
-        local txt = Drawing.new("Text")
-        txt.Text = cluster.Name
-        txt.Size = 14
-        txt.Center = true
-        txt.Outline = true
-        txt.Font = 2
-        txt.Color = color
-        txt.Visible = false
-        cluster.Text = txt
     end
 
-    local function GetCenter(parts)
-        local pos = Vector3.zero
-        local c = 0
+    local l = Drawing.new("Line")
+    l.Color = color
+    l.Thickness = 1.5
+    l.Transparency = 1
+    l.Visible = false
+    cluster.Line = l
 
-        for _,p in ipairs(parts) do
-            if p and p.Parent then
-                pos += p.Position
-                c += 1
-            end
-        end
+    local txt = Drawing.new("Text")
+    txt.Text = cluster.Name
+    txt.Size = 14
+    txt.Center = true
+    txt.Outline = true
+    txt.Font = 2
+    txt.Color = color
+    txt.Visible = false
+    cluster.Text = txt
+end
 
-        if c == 0 then return nil end
-        return pos / c
-    end
-
-    local function FindCluster(id,pos)
-        for _,v in ipairs(clusters) do
-            if v.Id == id and v.Center and (v.Center-pos).Magnitude <= CLUSTER_RADIUS then
-                return v
-            end
-        end
-    end
-
-    local function AddOre(part,name,id)
-        if processed[part] then return end
-        processed[part] = true
-
-        local cluster
-        if SelectedMode.Cluster then
-            cluster = FindCluster(id,part.Position)
-        end
-
-        if cluster then
-            table.insert(cluster.Parts,part)
-            cluster.Center = GetCenter(cluster.Parts)
-        else
-            cluster = {
-                Name = name,
-                Id = id,
-                Parts = {part},
-                Center = part.Position
-            }
-            CreateVisual(cluster)
-            table.insert(clusters,cluster)
-        end
-
-        part.Destroying:Connect(function()
-            processed[part] = nil
-            if guis[part] then
-                guis[part]:Destroy()
-                guis[part] = nil
-            end
-        end)
-    end
-
-    local function Process(decal)
-        local part = decal.Parent
-        if not part or not part:IsA("BasePart") then return end
-
-        local id = GetAssetId(decal.Texture)
-        if not id then return end
-
-        for name,target in pairs(ORE_IDS) do
-            if id == target then
-                AddOre(part,name,id)
-                break
-            end
+local function GetCenter(parts)
+    local pos = Vector3.zero
+    local c = 0
+    for _,p in ipairs(parts) do
+        if p and p.Parent then
+            pos += p.Position
+            c += 1
         end
     end
+    if c == 0 then return nil end
+    return pos / c
+end
 
-    for _,v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("Decal") then
-            Process(v)
+local function FindCluster(id,pos)
+    for _,v in ipairs(clusters) do
+        if v.Id == id and v.Center and (v.Center-pos).Magnitude <= CLUSTER_RADIUS then
+            return v
         end
     end
+end
 
-    workspace.DescendantAdded:Connect(function(v)
-        if v:IsA("Decal") then
-            Process(v)
+local function AddOre(part, name, id, isAdvanced)
+    if processed[part] then return end
+    processed[part] = true
+
+    local cluster
+    if SelectedMode.Cluster then
+        cluster = FindCluster(id,part.Position)
+    end
+
+    if cluster then
+        table.insert(cluster.Parts,part)
+        if not cluster.Center then cluster.Center = part.Position end
+    else
+        cluster = {
+            Name = name,
+            Id = id,
+            Parts = {part},
+            Center = part.Position,
+            IsAdvanced = isAdvanced
+        }
+        CreateVisual(cluster)
+        table.insert(clusters,cluster)
+    end
+
+    part.Destroying:Connect(function()
+        processed[part] = nil
+        if guis[part] then
+            guis[part]:Destroy()
+            guis[part] = nil
         end
     end)
+end
 
-    RunService.RenderStepped:Connect(function()
-        local from = Vector2.new(Camera.ViewportSize.X/2, 0)
+local function Process(decal)
+    local part = decal.Parent
+    if not part or not part:IsA("BasePart") then return end
 
-        for i=#clusters,1,-1 do
-            local c = clusters[i]
+    local id = GetAssetId(decal.Texture)
+    if not id then return end
+
+    for name,target in pairs(ORE_IDS) do
+        if id == target then
+            AddOre(part, name, id, false)
+            break
+        end
+    end
+end
+
+local function DrawAdvancedESP(x, y, z, data)
+    local part = Instance.new("Part")
+    part.Name = data.Name
+    part.Size = Vector3.new(3, 3, 3)
+    part.Position = Vector3.new((x * 3) + 1.5, (y * 3) + 1.5, (z * 3) + 1.5)
+    part.Anchored = true
+    part.CanCollide = false
+    part.Transparency = 1
+    part.Parent = AdvancedESPFolder
+
+    part:SetAttribute("BlockX", x)
+    part:SetAttribute("BlockY", y)
+    part:SetAttribute("BlockZ", z)
+
+    local box = Instance.new("BoxHandleAdornment")
+    box.Size = part.Size
+    box.Color3 = data.Color
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Transparency = 0.5
+    box.Adornee = part
+    box.Visible = false
+    box.Parent = part
+    
+    return part
+end
+
+Tab:Toggle({
+    Title = "Esp Ore",
+    Value = false,
+    Callback = function(state)
+        ESP = state
+    end,
+})
+
+Tab:Toggle({
+    Title = "Advanced Esp",
+    Value = false,
+    Callback = function(state)
+        AdvancedESP = state
+        if state then
+            task.spawn(function()
+                InitWorldManager()
+                if not WorldManagerReady then return end
+                
+                local lastCamPos = nil
+
+                while AdvancedESP do
+                    local camPos = Camera.CFrame.Position
+                    
+                    if not lastCamPos or (camPos - lastCamPos).Magnitude > 10 then
+                        lastCamPos = camPos
+                        local cx = math.floor(camPos.X / 3)
+                        local cy = math.floor(camPos.Y / 3)
+                        local cz = math.floor(camPos.Z / 3)
+
+                        local sy = math.max(0, cy - SCAN_RADIUS_BLOCKS)
+                        local ey = math.min(45, cy + SCAN_RADIUS_BLOCKS)
+                        
+                        local yieldTime = tick()
+
+                        for x = cx - SCAN_RADIUS_BLOCKS, cx + SCAN_RADIUS_BLOCKS do
+                            for z = cz - SCAN_RADIUS_BLOCKS, cz + SCAN_RADIUS_BLOCKS do
+                                for y = sy, ey do
+                                    if not AdvancedESP then break end
+                                    local key = x .. "_" .. y .. "_" .. z
+                                    
+                                    if not ScannedBlocks[key] then
+                                        ScannedBlocks[key] = true
+                                        local id = _G.GetBlockId(x, y, z)
+                                        local data = ADV_ORE_MAP[id]
+                                        
+                                        if data then
+                                            local fakePart = DrawAdvancedESP(x, y, z, data)
+                                            AddOre(fakePart, data.Name, id, true) 
+                                        end
+
+                                        if tick() - yieldTime > 0.015 then
+                                            task.wait()
+                                            yieldTime = tick()
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    task.wait(1)
+                end
+            end)
+        else
+            AdvancedESPFolder:ClearAllChildren()
+            table.clear(ScannedBlocks)
+        end
+    end,
+})
+
+Tab:Dropdown({
+    Title = "Ore",
+    Values = {"Iron","Coal","Redstone", "Diamond", "Gold", "Ancient Debris"},
+    Value = {"Iron","Coal","Redstone", "Diamond", "Gold", "Ancient Debris"},
+    Multi = true,
+    Callback = function(t)
+        UpdateMultiSelection(SelectedOre, t)
+    end,
+})
+
+Tab:Dropdown({
+    Title = "Mode",
+    Values = {"Highlight","Line","Name","Cluster","ClickToTeleport"},
+    Value = {"Highlight","Line","Name","Cluster","ClickToTeleport"},
+    Multi = true,
+    Callback = function(t)
+        UpdateMultiSelection(SelectedMode, t)
+    end,
+})
+
+for _,v in ipairs(workspace:GetDescendants()) do
+    if v:IsA("Decal") then
+        Process(v)
+    end
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    if v:IsA("Decal") then
+        Process(v)
+    end
+end)
+
+local lastCleanup = 0
+
+RunService.RenderStepped:Connect(function()
+    local camPos = Camera.CFrame.Position
+    local from = Vector2.new(Camera.ViewportSize.X/2, 0)
+    
+    local now = tick()
+    local needsCleanup = now - lastCleanup > 1
+    if needsCleanup then lastCleanup = now end
+
+    for i=#clusters,1,-1 do
+        local c = clusters[i]
+        
+        if needsCleanup then
             local valid = {}
-
             for _,p in ipairs(c.Parts) do
                 if p and p.Parent then
-                    table.insert(valid,p)
+                    local bx = p:GetAttribute("BlockX")
+                    if bx then
+                        local by = p:GetAttribute("BlockY")
+                        local bz = p:GetAttribute("BlockZ")
+                        if _G.GetBlockId then
+                            local currentId = _G.GetBlockId(bx, by, bz)
+                           
+                            if not ADV_ORE_MAP[currentId] then
+                                local key = bx .. "_" .. by .. "_" .. bz
+                                ScannedBlocks[key] = nil 
+                                p:Destroy() 
+                                continue
+                            end
+                        end
+                    end
+                    table.insert(valid, p)
                 end
             end
-
             c.Parts = valid
 
             if #valid == 0 then
                 RemoveCluster(c)
-                table.remove(clusters,i)
+                table.remove(clusters, i)
+                continue
             else
                 if SelectedMode.Cluster then
                     c.Center = GetCenter(valid)
                 else
                     c.Center = valid[1] and valid[1].Position or Vector3.zero
                 end
+            end
+        end
 
-                local enabled = ESP and not not SelectedOre[c.Name]
+        if #c.Parts == 0 then continue end
 
-                if c.Highlight then
-                    c.Highlight.Enabled = not not (enabled and SelectedMode.Highlight)
+        local isEnabledBase = c.IsAdvanced and AdvancedESP or (not c.IsAdvanced and ESP)
+        local enabled = isEnabledBase and not not SelectedOre[c.Name]
+
+        if c.IsAdvanced then
+            local distance = (camPos - c.Center).Magnitude
+            if distance > RENDER_DISTANCE then
+                enabled = false
+            end
+        end
+
+        if c.Highlight then
+            c.Highlight.Enabled = not not (enabled and SelectedMode.Highlight)
+        end
+
+        local tpEnabled = not not (enabled and SelectedMode.ClickToTeleport)
+        
+        for _, p in ipairs(c.Parts) do
+            if c.IsAdvanced then
+                local box = p:FindFirstChildOfClass("BoxHandleAdornment")
+                if box then
+                    box.Visible = not not (enabled and SelectedMode.Highlight)
                 end
+            end
 
-                local tpEnabled = not not (enabled and SelectedMode.ClickToTeleport)
-                for _, p in ipairs(valid) do
-                    local gui = guis[p]
-                    if tpEnabled then
-                        if not gui then
-                            gui = Instance.new("BillboardGui")
-                            gui.Name = "OreTeleportGui"
-                            gui.AlwaysOnTop = true
-                            gui.Active = true
-                            gui.Size = UDim2.new(0, 25, 0, 25)
-                            gui.Adornee = p
-                            gui.Parent = PlayerGui
-                            
-                            local btn = Instance.new("TextButton")
-                            btn.Size = UDim2.new(1, 0, 1, 0)
-                            btn.Text = ""
-                            btn.BackgroundTransparency = 0.99
-                            btn.BackgroundColor3 = Color3.new(1, 1, 1)
-                            btn.Active = true
-                            btn.Parent = gui
-                            
-                            btn.MouseButton1Click:Connect(function()
-                                if p and p.Parent then
-                                    local pos = p.Position
-                                    firesignal(
-                                        game:GetService("ReplicatedStorage"):WaitForChild("ClientWarning").OnClientEvent,
-                                        "pos",
-                                        {
-                                            position = Vector3.new(pos.X / 3, (pos.Y / 3) + 1, pos.Z / 3)
-                                        }
-                                    )
-                                end
-                            end)
-                            guis[p] = gui
+            local gui = guis[p]
+            if tpEnabled then
+                if not gui then
+                    gui = Instance.new("BillboardGui")
+                    gui.Name = "OreTeleportGui"
+                    gui.AlwaysOnTop = true
+                    gui.Active = true
+                    gui.Size = UDim2.new(0, 25, 0, 25)
+                    gui.Adornee = p
+                    gui.Parent = PlayerGui
+                    
+                    local btn = Instance.new("TextButton")
+                    btn.Size = UDim2.new(1, 0, 1, 0)
+                    btn.Text = ""
+                    btn.BackgroundTransparency = 0.99
+                    btn.BackgroundColor3 = Color3.new(1, 1, 1)
+                    btn.Active = true
+                    btn.Parent = gui
+                    
+                    btn.MouseButton1Click:Connect(function()
+                        if p and p.Parent then
+                            local pos = p.Position
+                            firesignal(
+                                game:GetService("ReplicatedStorage"):WaitForChild("ClientWarning").OnClientEvent,
+                                "pos",
+                                {
+                                    position = Vector3.new(pos.X / 3, (pos.Y / 3) + 1, pos.Z / 3)
+                                }
+                            )
                         end
-                        gui.Enabled = true
-                    else
-                        if gui then
-                            gui.Enabled = false
-                        end
-                    end
+                    end)
+                    guis[p] = gui
                 end
-
-                local pos,vis = Camera:WorldToViewportPoint(c.Center)
-                vis = vis and enabled
-
-                if c.Line then
-                    c.Line.Visible = not not (vis and SelectedMode.Line)
-                    if c.Line.Visible then
-                        c.Line.From = from
-                        c.Line.To = Vector2.new(pos.X,pos.Y)
-                    end
-                end
-
-                if c.Text then
-                    c.Text.Visible = not not (vis and SelectedMode.Name)
-                    if c.Text.Visible then
-                        c.Text.Position = Vector2.new(pos.X,pos.Y-16)
-                    end
+                gui.Enabled = true
+            else
+                if gui then
+                    gui.Enabled = false
                 end
             end
         end
-    end)
 
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Players = game:GetService("Players")
+        local pos,vis = Camera:WorldToViewportPoint(c.Center)
+        vis = vis and enabled
+
+        if c.Line then
+            c.Line.Visible = not not (vis and SelectedMode.Line)
+            if c.Line.Visible then
+                c.Line.From = from
+                c.Line.To = Vector2.new(pos.X,pos.Y)
+            end
+        end
+
+        if c.Text then
+            c.Text.Visible = not not (vis and SelectedMode.Name)
+            if c.Text.Visible then
+                c.Text.Position = Vector2.new(pos.X,pos.Y-16)
+            end
+        end
+    end
+end)
+
+local ReplicatedStorage = game.ReplicatedStorage
+
 
     _G.Noclip = false
     _G.NoclipY = false
@@ -660,6 +830,87 @@ Tab:Toggle({
 		end
 	end,
 })
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SendState = ReplicatedStorage:WaitForChild("SendState")
+local LocalPlayer = Players.LocalPlayer
+
+local killAuraEnabled = false
+local hookActive = false
+
+local oldInvoke
+oldInvoke = hookfunction(Instance.new("RemoteFunction").InvokeServer, newcclosure(function(self, ...)
+	if hookActive and self == SendState then
+		return nil
+	end
+	return oldInvoke(self, ...)
+end))
+
+local function isValidPosition(pos)
+	if math.abs(pos.X) <= 0.5 and math.abs(pos.Z) <= 0.5 then
+		return false
+	end
+	if pos.Y < -180 then
+		return false
+	end
+	return true
+end
+
+local function checkTargets()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Character then
+			local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+			if hrp and isValidPosition(hrp.Position) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+task.spawn(function()
+	while true do
+		if killAuraEnabled then
+			local hasTarget = checkTargets()
+			
+			if hasTarget then
+				hookActive = true
+				for _, player in ipairs(Players:GetPlayers()) do
+					if player ~= LocalPlayer and player.Character then
+						local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+						if hrp then
+							local pos = hrp.Position
+							if isValidPosition(pos) then
+								oldInvoke(SendState, {
+									facing = Vector3.new(0, 0, 0),
+									pos = (pos + Vector3.new(0, 3, 0)) / 3,
+									targetEntity = player.Name,
+									iattack = true
+								})
+							end
+						end
+					end
+				end
+			else
+				hookActive = false
+			end
+		else
+			hookActive = false
+		end
+		task.wait(1/20)
+	end
+end)
+
+Tab:Toggle({
+	Title = "Auto Kill",
+	Callback = function(v)
+		killAuraEnabled = v
+	end,
+})
+
+
+
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
