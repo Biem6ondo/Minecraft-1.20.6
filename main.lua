@@ -9,9 +9,14 @@ local WindUI = loadstring(game:HttpGet(
 ))()
 
 local Window = WindUI:CreateWindow({
-  Title = "Minecraft 1.20.6 | TEST",
-  Icon = "star",
+  Title = "Minecraft 1.20.6",
   Theme = "Dark",
+})
+
+Window:Tag({
+    Title = "Test!",
+    Color = Color3.fromHex("#30ff6a"),
+    Radius = 13,
 })
 
 local Section = Window:Section({
@@ -22,7 +27,7 @@ local Section = Window:Section({
 
 local Tab = Section:Tab({ Title = "Hack", Icon = "home" })
 
-if game.PlaceId ~= 96524407319918 then
+if game.PlaceId ~= 86809146123521 then
     local Dialog = Window:Dialog({
         Icon = "bird",
         Title = "Not support",
